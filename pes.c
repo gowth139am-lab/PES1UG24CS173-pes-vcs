@@ -23,8 +23,7 @@ void cmd_init(void) {
     mkdir(".pes/refs", 0755);
     mkdir(REFS_DIR, 0755);
 
-    if (access(HEAD_FILE, F_OK) != 0) {
-        FILE *f = fopen(HEAD_FILE, "w");
+    if (access(HEAD_FILE, F_OK) != 0) {        FILE *f = fopen(HEAD_FILE, "w");
         if (f) {
             fprintf(f, "ref: refs/heads/main\n");
             fclose(f);
@@ -35,35 +34,43 @@ void cmd_init(void) {
 }
 
 // Usage: pes add <file>...
-void cmd_add(int argc, char *argv[]) {
-    if (argc < 3) {
-        fprintf(stderr, "Usage: pes add <file>...\n");
-        return;
-    }
-
+int cmd_add(int argc, char *argv[]) {
     Index index;
+
     if (index_load(&index) != 0) {
-        fprintf(stderr, "error: failed to load index\n");
-        return;
+        printf("error: failed to load index\n");
+        return -1;
     }
 
-    for (int i = 2; i < argc; i++) {
+    // 🔥 skip "add"
+    for (int i = 0; i < argc; i++) {
+        // skip command name if present
+        if (strcmp(argv[i], "add") == 0) continue;
+
         if (index_add(&index, argv[i]) != 0) {
-            fprintf(stderr, "error: failed to add '%s'\n", argv[i]);
+            printf("error: failed to add %s\n", argv[i]);
+            return -1;
         }
     }
-}
 
-// Usage: pes status
-void cmd_status(void) {
-    Index index;
-    if (index_load(&index) != 0) {
-        fprintf(stderr, "error: failed to load index\n");
-        return;
+    if (index_save(&index) != 0) {
+        printf("error: failed to save index\n");
+        return -1;
     }
-    index_status(&index);
-}
 
+    return 0;
+}
+// Usage: pes status
+int cmd_status() {
+    Index index;
+
+    if (index_load(&index) != 0) {
+        printf("error: failed to load index\n");
+        return -1;
+    }
+
+    return index_status(&index);
+}
 // Usage: pes commit -m <message>
 void cmd_commit(int argc, char *argv[]) {
     if (argc < 4 || strcmp(argv[2], "-m") != 0) {
