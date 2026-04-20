@@ -60,7 +60,27 @@ int cmd_add(int argc, char *argv[]) {
 
     return 0;
 }
-// Usage: pes status
+int cmd_commit(int argc, char *argv[]) {
+    if (argc < 4 || strcmp(argv[2], "-m") != 0) {
+        printf("usage: pes commit -m <message>\n");
+        return -1;
+    }
+
+    const char *message = argv[3];
+
+    ObjectID id;
+
+    if (commit_create(message, &id) != 0) {
+        printf("error: commit failed\n");
+        return -1;
+    }
+
+    char hex[65];
+    hash_to_hex(&id, hex);
+
+    printf("Committed as %s\n", hex);
+    return 0;
+}
 int cmd_status() {
     Index index;
 
@@ -72,24 +92,6 @@ int cmd_status() {
     return index_status(&index);
 }
 // Usage: pes commit -m <message>
-void cmd_commit(int argc, char *argv[]) {
-    if (argc < 4 || strcmp(argv[2], "-m") != 0) {
-        fprintf(stderr, "error: commit requires a message (-m \"message\")\n");
-        return;
-    }
-
-    const char *message = argv[3];
-    ObjectID commit_id;
-    if (commit_create(message, &commit_id) != 0) {
-        fprintf(stderr, "error: commit failed\n");
-        return;
-    }
-
-    char hex[HASH_HEX_SIZE + 1];
-    hash_to_hex(&commit_id, hex);
-    printf("Committed: %.12s... %s\n", hex, message);
-}
-
 // Callback for commit_walk used by cmd_log.
 static void print_commit(const ObjectID *id, const Commit *commit, void *ctx) {
     (void)ctx;
@@ -102,12 +104,34 @@ static void print_commit(const ObjectID *id, const Commit *commit, void *ctx) {
 }
 
 // Usage: pes log
-void cmd_log(void) {
-    if (commit_walk(print_commit, NULL) != 0) {
-        fprintf(stderr, "No commits yet.\n");
+int cmd_log() {
+    FILE *f = fopen(".pes/HEAD", "r");
+    if (!f) {
+        printf("No commits yet\n");
+        return -1;
     }
-}
 
+    char hex[65];
+    fscanf(f, "%64s", hex);
+    fclose(f);
+
+    ObjectID id;
+    hex_to_hash(hex, &id);
+
+    Commit commit;
+
+    if (commit_read(&id, &commit) != 0) {
+        printf("error reading commit\n");
+        return -1;
+    }
+
+    printf("Commit: %s\n", hex);
+    printf("Author: %s\n", commit.author);
+    printf("Time: %llu\n", commit.timestamp);
+    printf("\nMessage:\n%s\n", commit.message);
+
+    return 0;
+}
 // ─── PROVIDED: Command dispatch ─────────────────────────────────────────────
 
 int main(int argc, char *argv[]) {
